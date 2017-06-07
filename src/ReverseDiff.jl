@@ -1,51 +1,36 @@
-__precompile__()
+# __precompile__()
 
 module ReverseDiff
 
-using Base: RefValue
-using FunctionWrappers: FunctionWrapper
-
-using Compat
-
-using DiffBase
-using DiffBase: DiffResult
-
+using Cassette: @defgenre, FunctionNote, Untrack, Hook, Play, Record, track, untrack
 using ForwardDiff
-using ForwardDiff: Dual, Partials
 
-if VERSION >= v"0.6.0-dev.1024"
-    const compat_product = Base.Iterators.product
-else
-    const compat_product = Base.product
-end
+#############
+# DiffGenre #
+#############
 
-# Not all operations will be valid over all of these types, but that's okay; such cases
-# will simply error when they hit the original operation in the overloaded definition.
-const ARRAY_TYPES = (:AbstractArray, :AbstractVector, :AbstractMatrix, :Array, :Vector, :Matrix)
-const REAL_TYPES = (:Bool, :Integer, :Rational, :BigFloat, :BigInt, :AbstractFloat, :Real, :Dual)
+@defgenre DiffGenre
 
-const FORWARD_UNARY_SCALAR_FUNCS = (ForwardDiff.AUTO_DEFINED_UNARY_FUNCS..., :-, :abs, :conj)
-const FORWARD_BINARY_SCALAR_FUNCS = (:*, :/, :+, :-, :^, :atan2)
-const SKIPPED_UNARY_SCALAR_FUNCS = (:isinf, :isnan, :isfinite, :iseven, :isodd, :isreal,
-                                    :isinteger)
-const SKIPPED_BINARY_SCALAR_FUNCS = (:isequal, :isless, :<, :>, :(==), :(!=), :(<=), :(>=))
+@inline Cassette.promote_genre(a::DiffGenre, b::ValueGenre) = a
+@inline Cassette.promote_genre(a::ValueGenre, b::DiffGenre) = b
+@inline Cassette.note_cache(::DiffGenre, value::Number) = zero(value)
+@inline Cassette.note_cache(::DiffGenre, value::AbstractArray) = zeros(value)
+@inline Cassette.note_cache_eltype(::DiffGenre, value) = eltype(value)
 
-include("tape.jl")
-include("tracked.jl")
-include("macros.jl")
-include("derivatives/propagation.jl")
+##################
+# Hook Fallbacks #
+##################
+
+@inline (h::Hook{Play,DiffGenre})(input...) = (Untrack(h.func)(input...), nothing)
+@inline (h::Hook{Play,DiffGenre})(::Type{T}) where {T} = (Untrack(h.func)(T), nothing)
+
+@inline (h::Hook{Record,DiffGenre})(output, input::Tuple,             cache) = track(output, h.genre, FunctionNote(h.genre, h.func, input, cache))
+@inline (h::Hook{Record,DiffGenre})(output, input::Tuple{<:DataType}, cache) = track(output, h.genre)
+
+############
+# includes #
+############
+
 include("derivatives/scalars.jl")
-include("derivatives/elementwise.jl")
-include("derivatives/linalg/arithmetic.jl")
-include("derivatives/linalg/reductions.jl")
-include("derivatives/linalg/special.jl")
-include("api/utils.jl")
-include("api/Config.jl")
-include("api/tape.jl")
-include("api/gradients.jl")
-include("api/jacobians.jl")
-include("api/hessians.jl")
-
-export DiffBase
 
 end # module
