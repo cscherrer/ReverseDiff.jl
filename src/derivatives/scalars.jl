@@ -24,8 +24,8 @@
     end
 end
 
-partials(x) where {N} = nothing
-partials(x::Dual) where {N} = ForwardDiff.partials(x)
+partials(x) = nothing
+partials(x::ForwardDiff.Dual) = ForwardDiff.partials(x)
 
 ###################
 # DiffGenre Hooks #
@@ -42,7 +42,7 @@ end
 # Replay #
 #--------#
 
-@inline function (h::Hook{Replay,DiffGenre})(output::Real, input::Tuple{Vargarg{Real}}, cache::Ref)
+@inline function (h::Hook{Replay,DiffGenre})(output::Real, input::Tuple{Vararg{Real}}, cache::Ref)
     dual_output = dualcall(h.func, input)
     output.value = ForwardDiff.value(dual_output)
     cache[] = partials(dual_output)

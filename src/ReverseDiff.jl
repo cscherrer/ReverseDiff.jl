@@ -1,8 +1,8 @@
-# __precompile__()
-
 module ReverseDiff
 
-using Cassette: @defgenre, FunctionNote, Untrack, Hook, Play, Record, track, untrack
+using Cassette
+using Cassette: @defgenre, FunctionNote, Untrack, Hook, Play,
+                Record, Replay, Rewind, track, untrack
 using ForwardDiff
 
 #############
@@ -11,8 +11,8 @@ using ForwardDiff
 
 @defgenre DiffGenre
 
-@inline Cassette.promote_genre(a::DiffGenre, b::ValueGenre) = a
-@inline Cassette.promote_genre(a::ValueGenre, b::DiffGenre) = b
+@inline Cassette.promote_genre(a::DiffGenre, b::Cassette.ValueGenre) = a
+@inline Cassette.promote_genre(a::Cassette.ValueGenre, b::DiffGenre) = b
 @inline Cassette.note_cache(::DiffGenre, value::Number) = zero(value)
 @inline Cassette.note_cache(::DiffGenre, value::AbstractArray) = zeros(value)
 @inline Cassette.note_cache_eltype(::DiffGenre, value) = eltype(value)
