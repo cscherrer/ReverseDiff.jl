@@ -53,10 +53,12 @@ end
 
 @generated function (h::Hook{Rewind,DiffGenre})(output::Real, input::NTuple{N,Real}, cache::Ref) where {N}
     loads = Expr(:block, Any[])
+    note_count = 1
     for i in 1:N
         R = input.parameters[i]
         if R <: Cassette.RealNote
-            push!(loads.args, :((input[$i]::$(R)).cache += output_deriv * input_derivs[$i])))
+            push!(loads.args, :((input[$i]::$(R)).cache += output_deriv * input_derivs[$(note_count)]))
+            note_count += 1
         end
     end
     return quote
