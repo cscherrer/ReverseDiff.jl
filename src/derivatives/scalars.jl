@@ -1,3 +1,36 @@
+###################
+# DiffGenre Hooks #
+###################
+
+# Play #
+#------#
+
+@inline function (h::Hook{Play,DiffGenre})(input::Real...)
+    dual_output = dualcall(func(h), input)
+    return ForwardDiff.value(dual_output), Cache(cacheable_partials(dual_output))
+end
+
+# Replay #
+#--------#
+
+@inline function (h::Hook{Replay,DiffGenre})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
+    dual_output = dualcall(func(h), input)
+    value!(output, ForwardDiff.value(dual_output))
+    cache!(parent, cacheable_partials(dual_output))
+    return nothing
+end
+
+# Rewind #
+#--------#
+
+@inline function (h::Hook{Rewind,DiffGenre})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
+    adjoint = cache(output)
+    partials = cache(parent)
+    propagate_deriv!(input, adjoint, partials)
+    cache!(output, zero(adjoint))
+    return nothing
+end
+
 #############
 # Utilities #
 #############
@@ -24,52 +57,24 @@
     end
 end
 
-partials(x) = nothing
-partials(x::ForwardDiff.Dual) = ForwardDiff.partials(x)
+@inline cacheable_partials(x) = nothing
+@inline cacheable_partials(x::ForwardDiff.Dual) = ForwardDiff.partials(x)
 
-@inline increment_cache!(x::Cassette.RealNote, y) = cache!(x, cache(x) + y)
-
-###################
-# DiffGenre Hooks #
-###################
-
-# Play #
-#------#
-
-@inline function (h::Hook{Play,DiffGenre})(input::Real...)
-    dual_output = dualcall(func(h), input)
-    return ForwardDiff.value(dual_output), Cache(partials(dual_output))
-end
-
-# Replay #
-#--------#
-
-@inline function (h::Hook{Replay,DiffGenre})(output::Real, input::Tuple{Vararg{Real}}, parent::FunctionNote)
-    dual_output = dualcall(func(h), input)
-    value!(output, ForwardDiff.value(dual_output))
-    cache!(parent, partials(dual_output))
-    return nothing
-end
-
-# Rewind #
-#--------#
-
-@generated function (h::Hook{Rewind,DiffGenre})(output::Real, input::NTuple{N,Real}, parent::FunctionNote) where {N}
+@generated function propagate_deriv!(input::NTuple{N,Real}, adjoint, partials) where {N}
     increments = Expr(:block, Any[])
     note_count = 0
     for i in 1:N
         R = input.parameters[i]
-        if R <: Cassette.RealNote
+        if R <: RealNote
             note_count += 1
-            push!(increments.args, :(increment_cache!(input[$i]::$(R), output_deriv * input_derivs[$(note_count)])))
+            push!(increments.args, :(increment_cache!(input[$i]::$(R), adjoint * partials[$(note_count)])))
         end
     end
     return quote
         $(Expr(:meta, :inline))
-        output_deriv = cache(output)
-        input_derivs = cache(parent)
         $(increments)
-        cache!(output, zero(output_deriv))
         return nothing
     end
 end
+
+@inline increment_cache!(x::RealNote, y) = cache!(x, cache(x) + y)

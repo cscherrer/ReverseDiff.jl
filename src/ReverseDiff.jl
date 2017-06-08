@@ -2,7 +2,7 @@ module ReverseDiff
 
 using Cassette
 using Cassette: @defgenre, FunctionNote, Hook, Play, Record, Replay, Rewind, Cache,
-                track, disarm, func, value, value!, cache, cache!
+                track, disarm, func, value, value!, cache, cache!, RealNote
 
 using ForwardDiff
 
