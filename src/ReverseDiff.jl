@@ -5,6 +5,19 @@ using Cassette: @defgenre, FunctionNote, Untrack, Hook, Play,
                 Record, Replay, Rewind, track, untrack
 using ForwardDiff
 
+#########
+# Cache #
+#########
+
+# This is basically a RefValue, but without
+# all the historical baggage carried by Ref.
+mutable struct Cache{T}
+    data::T
+end
+
+@inline Base.getindex(c::Cache) = c.data
+@inline Base.setindex!(c::Cache, x) = (c.data = x; c)
+
 #############
 # DiffGenre #
 #############
@@ -13,8 +26,10 @@ using ForwardDiff
 
 @inline Cassette.promote_genre(a::DiffGenre, b::Cassette.ValueGenre) = a
 @inline Cassette.promote_genre(a::Cassette.ValueGenre, b::DiffGenre) = b
+
 @inline Cassette.note_cache(::DiffGenre, value::Number) = zero(value)
 @inline Cassette.note_cache(::DiffGenre, value::AbstractArray) = zeros(value)
+
 @inline Cassette.note_cache_eltype(::DiffGenre, value) = eltype(value)
 
 ##################
