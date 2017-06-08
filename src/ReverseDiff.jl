@@ -1,22 +1,10 @@
 module ReverseDiff
 
 using Cassette
-using Cassette: @defgenre, FunctionNote, Untrack, Hook, Play,
-                Record, Replay, Rewind, track, untrack
+using Cassette: @defgenre, FunctionNote, Hook, Play, Record, Replay, Rewind, Cache,
+                track, disarm, func, value, value!, cache, cache!
+
 using ForwardDiff
-
-#########
-# Cache #
-#########
-
-# This is basically a RefValue, but without
-# all the historical baggage carried by Ref.
-mutable struct Cache{T}
-    data::T
-end
-
-@inline Base.getindex(c::Cache) = c.data
-@inline Base.setindex!(c::Cache, x) = (c.data = x; c)
 
 #############
 # DiffGenre #
@@ -27,20 +15,17 @@ end
 @inline Cassette.promote_genre(a::DiffGenre, b::Cassette.ValueGenre) = a
 @inline Cassette.promote_genre(a::Cassette.ValueGenre, b::DiffGenre) = b
 
+@inline Cassette.note_cache_eltype(::DiffGenre, cache) = eltype(cache)
+
 @inline Cassette.note_cache(::DiffGenre, value::Number) = zero(value)
 @inline Cassette.note_cache(::DiffGenre, value::AbstractArray) = zeros(value)
-
-@inline Cassette.note_cache_eltype(::DiffGenre, value) = eltype(value)
 
 ##################
 # Hook Fallbacks #
 ##################
 
-@inline (h::Hook{Play,DiffGenre})(input...) = (Untrack(h.func)(input...), nothing)
-@inline (h::Hook{Play,DiffGenre})(::Type{T}) where {T} = (Untrack(h.func)(T), nothing)
-
-@inline (h::Hook{Record,DiffGenre})(output, input::Tuple,             cache) = track(output, h.genre, FunctionNote(h.genre, h.func, input, cache))
-@inline (h::Hook{Record,DiffGenre})(output, input::Tuple{<:DataType}, cache) = track(output, h.genre)
+@inline (h::Hook{Play,DiffGenre})(input...) = disarm(func(h))(input...)
+@inline (h::Hook{Record,DiffGenre})(output, input::Tuple, cache...) = track(output, FunctionNote{DiffGenre}(func(h), input, cache...))
 
 ############
 # includes #

@@ -10,7 +10,7 @@
         R = input.parameters[i]
         if R <: Cassette.RealNote
             note_count += 1
-            push!(args, :(ForwardDiff.Dual{T}(untrack(input[$i]::$R), chunk, Val{$(note_count)}())))
+            push!(args, :(ForwardDiff.Dual{T}(value(input[$i]::$R), chunk, Val{$(note_count)}())))
         else
             push!(args, :(input[$i]::$R))
         end
@@ -27,6 +27,8 @@ end
 partials(x) = nothing
 partials(x::ForwardDiff.Dual) = ForwardDiff.partials(x)
 
+@inline increment_cache!(x::Cassette.RealNote, y) = cache!(x, cache(x) + y)
+
 ###################
 # DiffGenre Hooks #
 ###################
@@ -35,38 +37,39 @@ partials(x::ForwardDiff.Dual) = ForwardDiff.partials(x)
 #------#
 
 @inline function (h::Hook{Play,DiffGenre})(input::Real...)
-    dual_output = dualcall(h.func, input)
+    dual_output = dualcall(func(h), input)
     return ForwardDiff.value(dual_output), Cache(partials(dual_output))
 end
 
 # Replay #
 #--------#
 
-@inline function (h::Hook{Replay,DiffGenre})(output::Real, input::Tuple{Vararg{Real}}, cache::Cache)
-    dual_output = dualcall(h.func, input)
-    output.value = ForwardDiff.value(dual_output)
-    cache[] = partials(dual_output)
+@inline function (h::Hook{Replay,DiffGenre})(output::Real, input::Tuple{Vararg{Real}}, parent::FunctionNote)
+    dual_output = dualcall(func(h), input)
+    value!(output, ForwardDiff.value(dual_output))
+    cache!(parent, partials(dual_output))
+    return nothing
 end
 
 # Rewind #
 #--------#
 
-@generated function (h::Hook{Rewind,DiffGenre})(output::Real, input::NTuple{N,Real}, cache::Cache) where {N}
-    loads = Expr(:block, Any[])
+@generated function (h::Hook{Rewind,DiffGenre})(output::Real, input::NTuple{N,Real}, parent::FunctionNote) where {N}
+    increments = Expr(:block, Any[])
     note_count = 0
     for i in 1:N
         R = input.parameters[i]
         if R <: Cassette.RealNote
             note_count += 1
-            push!(loads.args, :((input[$i]::$(R)).cache += output_deriv * input_derivs[$(note_count)]))
+            push!(increments.args, :(increment_cache!(input[$i]::$(R), output_deriv * input_derivs[$(note_count)])))
         end
     end
     return quote
         $(Expr(:meta, :inline))
-        output_deriv = output.cache
-        input_derivs = cache[]
-        $(loads)
-        output.cache = zero(output_deriv)
+        output_deriv = cache(output)
+        input_derivs = cache(parent)
+        $(increments)
+        cache!(output, zero(output_deriv))
         return nothing
     end
 end
