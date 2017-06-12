@@ -5,7 +5,7 @@
 # Play #
 #------#
 
-@inline function (h::Hook{Play,DiffGenre})(input::Real...)
+@inline function (h::Hook{DiffGenre,Play})(input::Real...)
     dual_output = dualcall(func(h), input)
     return ForwardDiff.value(dual_output), Cache(cacheable_partials(dual_output))
 end
@@ -13,7 +13,7 @@ end
 # Replay #
 #--------#
 
-@inline function (h::Hook{Replay,DiffGenre})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
+@inline function (h::Hook{DiffGenre,Replay})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
     dual_output = dualcall(func(h), input)
     value!(output, ForwardDiff.value(dual_output))
     cache!(parent, cacheable_partials(dual_output))
@@ -23,7 +23,7 @@ end
 # Rewind #
 #--------#
 
-@inline function (h::Hook{Rewind,DiffGenre})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
+@inline function (h::Hook{DiffGenre,Rewind})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
     adjoint = cache(output)
     partials = cache(parent)
     propagate_deriv!(input, adjoint, partials)
@@ -34,6 +34,11 @@ end
 #############
 # Utilities #
 #############
+
+@inline cacheable_partials(x) = nothing
+@inline cacheable_partials(x::ForwardDiff.Dual) = ForwardDiff.partials(x)
+
+@inline increment_cache!(x::RealNote, y) = cache!(x, cache(x) + y)
 
 @generated function dualcall(f::F, input::NTuple{N,Real}) where {F,N}
     tag = ForwardDiff.Tag(F, input)
@@ -57,9 +62,6 @@ end
     end
 end
 
-@inline cacheable_partials(x) = nothing
-@inline cacheable_partials(x::ForwardDiff.Dual) = ForwardDiff.partials(x)
-
 @generated function propagate_deriv!(input::NTuple{N,Real}, adjoint, partials) where {N}
     increments = Expr(:block, Any[])
     note_count = 0
@@ -76,5 +78,3 @@ end
         return nothing
     end
 end
-
-@inline increment_cache!(x::RealNote, y) = cache!(x, cache(x) + y)

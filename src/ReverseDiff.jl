@@ -24,8 +24,8 @@ using ForwardDiff
 # Hook Fallbacks #
 ##################
 
-@inline (h::Hook{Play,DiffGenre})(input...) = disarm(func(h))(input...)
-@inline (h::Hook{Record,DiffGenre})(output, input::Tuple, cache...) = track(output, FunctionNote{DiffGenre}(func(h), input, cache...))
+@inline (h::Hook{DiffGenre,Play})(input...) = disarm(func(h))(input...)
+@inline (h::Hook{DiffGenre,Record})(output, input::Tuple, cache...) = track(output, FunctionNote{DiffGenre}(func(h), input, cache...))
 
 ############
 # includes #
