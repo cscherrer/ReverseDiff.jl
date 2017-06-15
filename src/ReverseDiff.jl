@@ -1,7 +1,7 @@
 module ReverseDiff
 
 using Cassette
-using Cassette: @defgenre, FunctionNote, Hook, Play, Record, Replay, Rewind, Cache,
+using Cassette: @defgenre, FunctionNote, Play, Record, Replay, Rewind, Cache,
                 track, disarm, func, value, value!, cache, cache!, RealNote
 
 using ForwardDiff
@@ -24,8 +24,8 @@ using ForwardDiff
 # Hook Fallbacks #
 ##################
 
-@inline (h::Hook{DiffGenre,Play})(input...) = disarm(func(h))(input...)
-@inline (h::Hook{DiffGenre,Record})(output, input::Tuple, cache...) = track(output, FunctionNote{DiffGenre}(func(h), input, cache...))
+@inline (p::Play{DiffGenre})(input...) = disarm(func(p))(input...)
+@inline (r::Record{DiffGenre})(output, input::Tuple, cache...) = track(output, FunctionNote{DiffGenre}(func(r), input, cache...))
 
 ############
 # includes #

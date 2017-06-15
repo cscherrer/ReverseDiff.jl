@@ -5,16 +5,16 @@
 # Play #
 #------#
 
-@inline function (h::Hook{DiffGenre,Play})(input::Real...)
-    dual_output = dualcall(func(h), input)
+@inline function (p::Play{DiffGenre})(input::Real...)
+    dual_output = dualcall(func(p), input)
     return ForwardDiff.value(dual_output), Cache(cacheable_partials(dual_output))
 end
 
 # Replay #
 #--------#
 
-@inline function (h::Hook{DiffGenre,Replay})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
-    dual_output = dualcall(func(h), input)
+@inline function (r::Replay{DiffGenre})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
+    dual_output = dualcall(func(r), input)
     value!(output, ForwardDiff.value(dual_output))
     cache!(parent, cacheable_partials(dual_output))
     return nothing
@@ -23,7 +23,7 @@ end
 # Rewind #
 #--------#
 
-@inline function (h::Hook{DiffGenre,Rewind})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
+@inline function (r::Rewind{DiffGenre})(output::RealNote, input::Tuple{Vararg{Real}}, parent::FunctionNote)
     adjoint = cache(output)
     partials = cache(parent)
     propagate_deriv!(input, adjoint, partials)
