@@ -1,7 +1,7 @@
 module ReverseDiff
 
 using Cassette
-using Cassette: @defgenre, func, value, value!, cache, cache!
+using Cassette: @defgenre, func, value, value!, cache, cache!, ValueNote, FunctionNote
 
 using ForwardDiff
 
@@ -28,8 +28,7 @@ const ARRAY_PRIMITIVES = Symbol[:eltype, :start, :length, :size, :getindex, :set
 # Directives #
 ##############
 
-const RealNote = Cassette.ValueNote{<:Cassette.AbstractGenre,<:Real}
-const ArrayNote = Cassette.ValueNote{<:Cassette.AbstractGenre,<:AbstractArray}
+const RealNote = ValueNote{<:Cassette.AbstractGenre,<:Real}
 
 # InterceptAs #
 #-------------#
@@ -62,29 +61,29 @@ end
 @inline (r::Cassette.Record{DiffGenre})(output, input) = output
 
 @inline function (r::Cassette.Record{DiffGenre})(output, input, cache)
-    return Cassette.ValueNote(output, Cassette.FunctionNote{DiffGenre}(func(r), input), cache)
+    return ValueNote(output, FunctionNote{DiffGenre}(func(r), input, cache), zero(output))
 end
 
-# # Replay #
-# #--------#
-#
-# @inline function (r::Replay{DiffGenre})(output::RealNote, input::Tuple{Vararg{Union{Real,RealNote}}}, parent::Note)
-#     dual_output = dualcall(func(r), input)
-#     value!(output, ForwardDiff.value(dual_output))
-#     cache!(parent, cacheable_partials(dual_output))
-#     return nothing
-# end
-#
-# # Rewind #
-# #--------#
-#
-# @inline function (r::Rewind{DiffGenre})(output::RealNote, input::Tuple{Vararg{Union{Real,RealNote}}}, parent::Note)
-#     adjoint = cache(output)
-#     partials = cache(parent)
-#     propagate_deriv!(input, adjoint, partials)
-#     cache!(output, zero(adjoint))
-#     return nothing
-# end
+# Replay #
+#--------#
+
+@inline function (r::Cassette.Replay{DiffGenre})(output::ValueNote, input::Tuple, parent::FunctionNote)
+    dual_output = dualcall(func(r), input)
+    value!(output, ForwardDiff.value(dual_output))
+    cache!(parent, cacheable_partials(dual_output))
+    return nothing
+end
+
+# Rewind #
+#--------#
+
+@inline function (r::Cassette.Rewind{DiffGenre})(output::ValueNote, input::Tuple, parent::FunctionNote)
+    adjoint = cache(output)
+    partials = cache(parent)
+    propagate_deriv!(input, adjoint, partials)
+    cache!(output, zero(adjoint))
+    return nothing
+end
 
 #############
 # Utilities #
